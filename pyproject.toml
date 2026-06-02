@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "github-rep"
-version = "0.1.1"
+version = "0.2.0"
 description = "Analyze a GitHub profile and get honest, actionable advice for building real reputation"
 readme = "README.md"
 license = { text = "MIT" }

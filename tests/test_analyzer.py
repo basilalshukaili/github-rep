@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
+import base64
 
 import pytest
 
@@ -17,7 +18,7 @@ from github_rep.analyzer import (
 from github_rep.api import GitHubClient
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def _dt(days_ago: int) -> str:
     dt = datetime.now(timezone.utc) - timedelta(days=days_ago)
@@ -56,7 +57,7 @@ def _make_repo(name: str = "my-repo", stars: int = 10, fork: bool = False,
     }
 
 
-# ── _days_since ────────────────────────────────────────────────────────────────
+# -- _days_since ---------------------------------------------------------------
 
 class TestDaysSince:
     def test_none_returns_none(self):
@@ -72,7 +73,7 @@ class TestDaysSince:
         assert _days_since("not-a-date") is None
 
 
-# ── _readme_score ──────────────────────────────────────────────────────────────
+# -- _readme_score -------------------------------------------------------------
 
 class TestReadmeScore:
     def test_no_readme_returns_zero_critical(self):
@@ -102,7 +103,7 @@ class TestReadmeScore:
         assert score <= 15
 
 
-# ── Finding ────────────────────────────────────────────────────────────────────
+# -- Finding -------------------------------------------------------------------
 
 class TestFinding:
     @pytest.mark.parametrize("severity,expected", [
@@ -115,7 +116,7 @@ class TestFinding:
         assert f.icon == expected
 
 
-# ── ProfileScore ───────────────────────────────────────────────────────────────
+# -- ProfileScore --------------------------------------------------------------
 
 class TestProfileScore:
     @pytest.mark.parametrize("total,grade", [
@@ -137,10 +138,11 @@ class TestProfileScore:
         assert s.tier == tier
 
 
-# ── Full analyze() with mocked API ────────────────────────────────────────────
+# -- Full analyze() with mocked API --------------------------------------------
 
 class TestAnalyze:
-    def _mock_client(self, user, repos, readme_content=None):
+    def _mock_client(self, user, repos, readme_content=None,
+                     releases=None, profile_readme=None):
         """Return a mock GitHubClient."""
         client = MagicMock(spec=GitHubClient)
         client.get_user.return_value = user
@@ -148,12 +150,20 @@ class TestAnalyze:
             repos + [_make_repo("forked", fork=True)] if include_forks else repos
         )
 
-        def mock_get(path, **kwargs):
+        def mock_get(path, params=None, **kwargs):
             if "/readme" in path:
+                # Profile README (username/username)
+                parts = path.split("/")
+                if len(parts) >= 4 and parts[2] == parts[3]:
+                    if profile_readme is None:
+                        raise Exception("404 Not Found")
+                    return {"content": base64.b64encode(profile_readme.encode()).decode()}
+                # Repo README
                 if readme_content is None:
                     raise Exception("404 Not Found")
-                import base64
                 return {"content": base64.b64encode(readme_content.encode()).decode()}
+            if "/releases" in path:
+                return releases if releases is not None else []
             return {}
 
         client.get.side_effect = mock_get
@@ -190,7 +200,7 @@ class TestAnalyze:
 
     @patch("github_rep.analyzer.GitHubClient")
     def test_findings_sorted_by_severity(self, MockClient):
-        user = _make_user(bio=None)  # triggers a high finding
+        user = _make_user(bio=None)
         repos = [_make_repo()]
         MockClient.return_value = self._mock_client(user, repos)
 
@@ -219,3 +229,104 @@ class TestAnalyze:
         score = analyze("testuser")
         star_findings = [f for f in score.findings if f.category == "star_signal"]
         assert any(f.severity in ("high", "medium") for f in star_findings)
+
+    # -- New signal: release_cadence -------------------------------------------
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_release_cadence_no_releases(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        MockClient.return_value = self._mock_client(user, repos, releases=[])
+
+        score = analyze("testuser")
+
+        assert "release_cadence" in score.breakdown
+        assert score.breakdown["release_cadence"] == 0
+        rc_findings = [f for f in score.findings if f.category == "release_cadence"]
+        assert len(rc_findings) == 1
+        assert rc_findings[0].severity == "low"
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_release_cadence_few_releases(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        fake_releases = [{"tag_name": "v0.1.0"}, {"tag_name": "v0.2.0"}]
+        MockClient.return_value = self._mock_client(user, repos, releases=fake_releases)
+
+        score = analyze("testuser")
+
+        assert score.breakdown["release_cadence"] == 3
+        rc_findings = [f for f in score.findings if f.category == "release_cadence"]
+        assert rc_findings[0].severity == "low"
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_release_cadence_many_releases(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo(f"repo-{i}") for i in range(5)]
+        # Each of 5 repos has 1 release = 5 total (>= 3 threshold)
+        fake_releases = [{"tag_name": "v1.0.0"}]
+        MockClient.return_value = self._mock_client(user, repos, releases=fake_releases)
+
+        score = analyze("testuser")
+
+        assert score.breakdown["release_cadence"] == 5
+        rc_findings = [f for f in score.findings if f.category == "release_cadence"]
+        assert rc_findings[0].severity == "good"
+
+    # -- New signal: profile_readme --------------------------------------------
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_profile_readme_missing(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        MockClient.return_value = self._mock_client(user, repos, profile_readme=None)
+
+        score = analyze("testuser")
+
+        assert "profile_readme" in score.breakdown
+        assert score.breakdown["profile_readme"] == 0
+        pr_findings = [f for f in score.findings if f.category == "profile_readme"]
+        assert len(pr_findings) == 1
+        assert pr_findings[0].severity == "medium"
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_profile_readme_short(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        short_readme = "Hi I code things."
+        MockClient.return_value = self._mock_client(user, repos, profile_readme=short_readme)
+
+        score = analyze("testuser")
+
+        assert score.breakdown["profile_readme"] == 2
+        pr_findings = [f for f in score.findings if f.category == "profile_readme"]
+        assert pr_findings[0].severity == "low"
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_profile_readme_substantial(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        long_readme = " ".join(["word"] * 150)
+        MockClient.return_value = self._mock_client(user, repos, profile_readme=long_readme)
+
+        score = analyze("testuser")
+
+        assert score.breakdown["profile_readme"] == 5
+        pr_findings = [f for f in score.findings if f.category == "profile_readme"]
+        assert pr_findings[0].severity == "good"
+
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_breakdown_has_all_11_dimensions(self, MockClient):
+        user = _make_user()
+        repos = [_make_repo()]
+        MockClient.return_value = self._mock_client(user, repos)
+
+        score = analyze("testuser")
+
+        expected_dims = {
+            "profile_completeness", "readme_quality", "star_signal",
+            "contribution_streak", "repo_diversity", "description_quality",
+            "topic_tags", "fork_ratio", "recent_activity",
+            "release_cadence", "profile_readme",
+        }
+        assert set(score.breakdown.keys()) == expected_dims

@@ -29,7 +29,7 @@ class GitHubClient:
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "github-rep/0.1.0",
+            "User-Agent": "github-rep/0.2.0",
         })
         if self.token:
             self.session.headers["Authorization"] = f"Bearer {self.token}"

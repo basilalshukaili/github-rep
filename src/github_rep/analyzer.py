@@ -1,4 +1,4 @@
-"""Profile analyzer: scores genuine reputation signals across 9 dimensions."""
+"""Profile analyzer: scores genuine reputation signals across 11 dimensions."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ class ProfileScore:
         return "Just starting"
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def _days_since(dt_str: Optional[str]) -> Optional[int]:
     if not dt_str:
@@ -113,7 +113,6 @@ def _readme_score(readme_text: Optional[str]) -> Tuple[int, List[Finding]]:
     else:
         score += 12
 
-    # Code examples
     if "```" in readme_text or "`" in readme_text:
         score += 2
     else:
@@ -124,7 +123,6 @@ def _readme_score(readme_text: Optional[str]) -> Tuple[int, List[Finding]]:
             "Add a quick-start code block showing the most common use case.",
         ))
 
-    # Installation instructions
     has_install = any(
         kw in readme_text.lower()
         for kw in ["install", "pip install", "npm install", "brew install", "cargo add"]
@@ -142,14 +140,14 @@ def _readme_score(readme_text: Optional[str]) -> Tuple[int, List[Finding]]:
     return min(score, 15), findings
 
 
-# ── Main analyzer ─────────────────────────────────────────────────────────────
+# -- Main analyzer -------------------------------------------------------------
 
 def analyze(
     username: str,
     token: Optional[str] = None,
     top_n: int = 10,
 ) -> ProfileScore:
-    """Fetch GitHub data and compute a ProfileScore across 9 dimensions.
+    """Fetch GitHub data and compute a ProfileScore across 11 dimensions.
 
     Args:
         username:  GitHub username to analyze.
@@ -168,7 +166,7 @@ def analyze(
     breakdown: Dict[str, int] = {}
     findings: List[Finding] = []
 
-    # ── 1. Profile completeness (10 pts) ──────────────────────────────────────
+    # 1. Profile completeness (10 pts) ----------------------------------------
     pc = 0
     if user.get("bio"):
         pc += 3
@@ -213,7 +211,7 @@ def analyze(
         ))
     breakdown["profile_completeness"] = min(pc, 10)
 
-    # ── 2. README quality (15 pts) ────────────────────────────────────────────
+    # 2. README quality (15 pts) -----------------------------------------------
     readme_text: Optional[str] = None
     if top_repos:
         best = top_repos[0]
@@ -226,7 +224,7 @@ def analyze(
     breakdown["readme_quality"] = readme_pts
     findings.extend(readme_findings)
 
-    # ── 3. Star signal (20 pts) ───────────────────────────────────────────────
+    # 3. Star signal (20 pts) --------------------------------------------------
     total_stars = sum(r.get("stargazers_count", 0) for r in repos)
     max_stars = max((r.get("stargazers_count", 0) for r in repos), default=0)
     if total_stars == 0:
@@ -244,8 +242,7 @@ def analyze(
             "star_signal", "medium",
             f"Low star count ({total_stars} total)",
             "Genuine stars come from genuine visibility.",
-            "Share in community WHEN you have something useful to say "
-            "(build log, lesson learned, solved problem).",
+            "Share in community when you have something useful to say.",
         ))
     elif total_stars < 25:
         star_pts = 10
@@ -262,7 +259,7 @@ def analyze(
         ))
     breakdown["star_signal"] = star_pts
 
-    # ── 4. Contribution activity (15 pts) ─────────────────────────────────────
+    # 4. Contribution activity (15 pts) ----------------------------------------
     days = _days_since(user.get("updated_at"))
     if days is None or days > 180:
         streak_pts = 0
@@ -291,7 +288,7 @@ def analyze(
         ))
     breakdown["contribution_streak"] = streak_pts
 
-    # ── 5. Repo diversity (10 pts) ────────────────────────────────────────────
+    # 5. Repo diversity (10 pts) -----------------------------------------------
     n_repos = len(repos)
     if n_repos == 0:
         div_pts = 0
@@ -322,7 +319,7 @@ def analyze(
             ))
     breakdown["repo_diversity"] = div_pts
 
-    # ── 6. Description quality (10 pts) ───────────────────────────────────────
+    # 6. Description quality (10 pts) ------------------------------------------
     repos_missing_desc = [r for r in repos if not r.get("description")]
     if repos_missing_desc:
         pct = len(repos_missing_desc) / max(len(repos), 1)
@@ -343,7 +340,7 @@ def analyze(
         ))
     breakdown["description_quality"] = desc_pts
 
-    # ── 7. Topic tags (5 pts) ─────────────────────────────────────────────────
+    # 7. Topic tags (5 pts) ----------------------------------------------------
     repos_without_topics = [r for r in repos if not r.get("topics")]
     if not repos_without_topics:
         topic_pts = 5
@@ -370,7 +367,7 @@ def analyze(
         ))
     breakdown["topic_tags"] = topic_pts
 
-    # ── 8. Fork ratio (5 pts) ─────────────────────────────────────────────────
+    # 8. Fork ratio (5 pts) ----------------------------------------------------
     all_repos_with_forks = client.get_repos(username, include_forks=True)
     fork_count = sum(1 for r in all_repos_with_forks if r.get("fork"))
     total_count = len(all_repos_with_forks)
@@ -389,7 +386,7 @@ def analyze(
         fork_pts = 5
     breakdown["fork_ratio"] = fork_pts
 
-    # ── 9. Recent activity quality (10 pts) ───────────────────────────────────
+    # 9. Recent activity quality (10 pts) --------------------------------------
     recently_active = [
         r for r in repos
         if _days_since(r.get("pushed_at")) is not None
@@ -420,7 +417,82 @@ def analyze(
         ))
     breakdown["recent_activity"] = ra_pts
 
-    # ── Aggregate ─────────────────────────────────────────────────────────────
+    # 10. Release cadence (5 pts) -- NEW ---------------------------------------
+    # Published releases signal versioned, production-ready software that
+    # users can subscribe to and depend on.
+    release_pts = 0
+    total_releases = 0
+    for repo in top_repos[:5]:
+        try:
+            releases = client.get(f"/repos/{username}/{repo['name']}/releases",
+                                  params={"per_page": 5})
+            total_releases += len(releases)
+        except Exception:
+            pass
+    if total_releases == 0:
+        release_pts = 0
+        if top_repos:
+            findings.append(Finding(
+                "release_cadence", "low",
+                "No published releases",
+                "GitHub Releases make your project feel production-ready and "
+                "let users subscribe to new versions.",
+                "Tag your first release: git tag v0.1.0 && git push --tags, "
+                "then create a GitHub release with changelog notes.",
+            ))
+    elif total_releases < 3:
+        release_pts = 3
+        findings.append(Finding(
+            "release_cadence", "low",
+            f"Only {total_releases} published release(s)",
+            "A release cadence signals active maintenance.",
+            "Aim for a release whenever you ship a meaningful change.",
+        ))
+    else:
+        release_pts = 5
+        findings.append(Finding(
+            "release_cadence", "good",
+            f"{total_releases} published releases across top repos",
+            "Regular releases signal a maintained, production-quality project.",
+        ))
+    breakdown["release_cadence"] = release_pts
+
+    # 11. Profile README signal (5 pts) -- NEW ---------------------------------
+    # A profile README (special repo username/username) is displayed at the
+    # top of the GitHub profile page - the highest-visibility real estate.
+    profile_readme_pts = 0
+    try:
+        raw = client.get(f"/repos/{username}/{username}/readme")
+        profile_text = base64.b64decode(raw["content"]).decode("utf-8", errors="replace")
+        word_count = len(profile_text.split())
+        if word_count >= 100:
+            profile_readme_pts = 5
+            findings.append(Finding(
+                "profile_readme", "good",
+                f"Profile README exists and is substantial ({word_count} words)",
+                "A profile README is the highest-visibility real estate on GitHub.",
+            ))
+        else:
+            profile_readme_pts = 2
+            findings.append(Finding(
+                "profile_readme", "low",
+                f"Profile README is short ({word_count} words)",
+                "You have a profile README but it could work harder for you.",
+                "Add your current focus, top project links, and how to contact you.",
+            ))
+    except Exception:
+        profile_readme_pts = 0
+        findings.append(Finding(
+            "profile_readme", "medium",
+            "No profile README",
+            f"A profile README (create repo: {username}/{username}) is the first "
+            "thing visitors see. Prime real estate for your personal brand.",
+            f"Create a repo named exactly '{username}' with a README.md showing "
+            "your focus, skills, and top projects.",
+        ))
+    breakdown["profile_readme"] = profile_readme_pts
+
+    # Aggregate ----------------------------------------------------------------
     total = sum(breakdown.values())
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "good": 4}
     findings.sort(key=lambda f: severity_order.get(f.severity, 5))

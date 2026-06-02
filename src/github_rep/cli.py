@@ -38,11 +38,26 @@ def _grade_color(grade: str) -> str:
     return {"A": "bold green", "B": "green", "C": "yellow", "D": "orange3", "F": "red"}.get(grade, "white")
 
 
+# Dimension max scores (must stay in sync with analyzer.py)
+DIMENSION_MAX = {
+    "profile_completeness": 10,
+    "readme_quality":       15,
+    "star_signal":          20,
+    "contribution_streak":  15,
+    "repo_diversity":       10,
+    "description_quality":  10,
+    "topic_tags":            5,
+    "fork_ratio":            5,
+    "recent_activity":      10,
+    "release_cadence":       5,
+    "profile_readme":        5,
+}
+
+
 def _render_score(score: ProfileScore, verbose: bool = False) -> None:
     """Render a ProfileScore to the terminal using Rich."""
     grade_color = _grade_color(score.grade)
 
-    # Header panel
     user = score.raw_user
     header_lines = [
         f"[bold]@{score.username}[/bold]  |  {user.get('name', '')}",
@@ -53,34 +68,19 @@ def _render_score(score: ProfileScore, verbose: bool = False) -> None:
     ]
     console.print(Panel("\n".join(header_lines), title="GitHub Profile", border_style="blue"))
 
-    # Score summary
     grade_text = Text(f"Grade: {score.grade}  ({score.total}/100)", style=grade_color)
     tier_text = Text(f"Tier: {score.tier}", style="bold")
     console.print(grade_text)
     console.print(tier_text)
     console.print()
 
-    # Breakdown table
     table = Table(title="Score Breakdown", show_header=True, header_style="bold cyan")
     table.add_column("Dimension", min_width=24)
     table.add_column("Score", justify="right", min_width=8)
     table.add_column("Max",   justify="right", min_width=5)
 
-    dimension_max = {
-        "profile_completeness": 10,
-        "readme_quality":       15,
-        "star_signal":          20,
-        "contribution_streak":  15,
-        "repo_diversity":       10,
-        "description_quality":  10,
-        "topic_tags":            5,
-        "fork_ratio":            5,
-        "recent_activity":      10,
-    }
-
     for dim, pts in score.breakdown.items():
-        max_pts = dimension_max.get(dim, 10)
-        bar = "█" * pts + "░" * (max_pts - pts)
+        max_pts = DIMENSION_MAX.get(dim, 10)
         label = dim.replace("_", " ").title()
         color = "green" if pts >= max_pts * 0.8 else "yellow" if pts >= max_pts * 0.5 else "red"
         table.add_row(label, f"[{color}]{pts}[/{color}]", str(max_pts))
@@ -88,7 +88,6 @@ def _render_score(score: ProfileScore, verbose: bool = False) -> None:
     console.print(table)
     console.print()
 
-    # Findings
     critical_and_high = [f for f in score.findings if f.severity in ("critical", "high")]
     medium_and_low = [f for f in score.findings if f.severity in ("medium", "low")]
     good = [f for f in score.findings if f.severity == "good"]
@@ -123,7 +122,7 @@ def _render_score(score: ProfileScore, verbose: bool = False) -> None:
         console.print()
 
 
-# ── Commands ──────────────────────────────────────────────────────────────────
+# -- Commands ------------------------------------------------------------------
 
 @app.command()
 def analyze_profile(
@@ -136,13 +135,13 @@ def analyze_profile(
     json_output: bool = typer.Option(False, "--json", help="Output results as JSON"),
     top_n: int = typer.Option(10, "--top", help="Number of top repos to deep-analyze"),
 ) -> None:
-    """Analyze a GitHub profile and score it across 9 genuine reputation dimensions.
+    """Analyze a GitHub profile and score it across 11 genuine reputation dimensions.
 
     Examples:
-        github-rep torvalds
-        github-rep basilalshukaili --verbose
-        github-rep sindresorhus --json
-        GITHUB_TOKEN=ghp_xxx github-rep gvanrossum
+        github-rep analyze-profile torvalds
+        github-rep analyze-profile basilalshukaili --verbose
+        github-rep analyze-profile sindresorhus --json
+        GITHUB_TOKEN=ghp_xxx github-rep analyze-profile gvanrossum
     """
     try:
         with console.status(f"[cyan]Analyzing @{username}...[/cyan]", spinner="dots"):
@@ -172,7 +171,7 @@ def analyze_profile(
                 for f in score.findings
             ],
         }
-        console.print(json.dumps(output, indent=2))
+        print(json.dumps(output, indent=2))
         return
 
     _render_score(score, verbose=verbose)
@@ -208,11 +207,7 @@ def compare(
     for s in scores:
         table.add_column(f"@{s.username}", justify="right", min_width=12)
 
-    dimensions = [
-        "profile_completeness", "readme_quality", "star_signal",
-        "contribution_streak", "repo_diversity", "description_quality",
-        "topic_tags", "fork_ratio", "recent_activity",
-    ]
+    dimensions = list(DIMENSION_MAX.keys())
     for dim in dimensions:
         row = [dim.replace("_", " ").title()]
         for s in scores:
@@ -220,7 +215,6 @@ def compare(
             row.append(str(pts))
         table.add_row(*row)
 
-    # Total row
     totals = ["[bold]TOTAL[/bold]"]
     for s in scores:
         grade_color = _grade_color(s.grade)
