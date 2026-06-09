@@ -4,8 +4,9 @@
 
 | Layer | Tech | Role |
 |-------|------|------|
-| Brain | Claude Opus 4.8 (nous provider) | Plans, decides, reviews every diff, writes all prose, commits |
-| Hands | DeepSeek (delegation.model) | Mechanical, fully-specified, verifiable subtasks only |
+| Brain | Claude Opus 4.8 | Plans, decides, reviews every diff, writes all prose, commits |
+| Worker | Claude Sonnet 4.6 | Mechanical, fully-specified, verifiable subtasks only |
+| Scout | Claude Haiku 4.5 | Cheap scans, grep-style searches, formatting |
 | State | Obsidian vault (Desktop/SecondBrain) | Roadmap, targets, repo dossiers, journal, lessons, dreams |
 | Procedure | Hermes Skills + Curator | Reusable playbooks; auto-maintained, self-improving |
 | Facts | Hermes memory | Durable user + system facts injected each turn |
@@ -21,14 +22,14 @@ mission run -> journal (03) -> lessons (05) -> nightly dream (06) synthesizes
 ```
 
 ## Quality preservation (the core promise)
-DeepSeek saves tokens on mechanical work, but NEVER touches output quality because:
-- It only executes fully-specified, verifiable tasks.
+The Worker/Scout tiers save tokens on mechanical work, but NEVER touch output quality because:
+- They only execute fully-specified, verifiable tasks.
 - Opus reviews every diff and rewrites weak parts.
 - Opus writes all judgment-bearing artifacts (commits, PR text, comments, decisions).
 - The repo's own test suite must pass (real output) before any PR.
 
 ## Token levers (all quality-neutral)
-1. Opus plans/reviews; DeepSeek executes mechanical work (~50% Opus reduction).
+1. Opus plans/reviews; Sonnet executes; Haiku scans — push mechanical work down the ladder (~5x cost cut vs all-Opus).
 2. Anthropic prompt caching (never change tools/prompt mid-session).
 3. Isolated subagent contexts (delegate_task keeps tool spam out of Opus's window).
 4. Scoped reads (read_file/search_files), tool pruning per cron job.
