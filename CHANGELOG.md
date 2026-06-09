@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.2.1] - 2026-06-09
+
+### Fixed
+- **Honest activity signal:** the Contribution Activity dimension now measures the
+  most recent push to an owned repo (real code activity) instead of the profile's
+  `updated_at`, which also changes on stars, follows, and bio edits. Findings no
+  longer claim "recent commits" based on non-commit profile touches.
+- **Secondary rate limits:** the API client now raises `RateLimitError` on HTTP 429
+  (with `Retry-After`), not just 403, so the CLI shows a clear message instead of an
+  opaque traceback.
+- **Cache writes are best-effort:** a read-only or full cache directory no longer
+  crashes an analysis.
+
+### Changed
+- `analyze()` fetches the repo list once (with forks) and filters locally, removing
+  a redundant second GitHub API call and halving repo-list requests.
+- Dropped the unused `python-dateutil` dependency.
+- `import time` hoisted to module scope in the CLI.
+
+### Added
+- Test suites for `api.py` (rate limits 403/429, caching, pagination, fork filter,
+  auth header) and `cli.py` (JSON output, rate-limit error path, compare validation).
+
+---
+
 ## [0.2.0] - 2026-06-02
 
 ### Added

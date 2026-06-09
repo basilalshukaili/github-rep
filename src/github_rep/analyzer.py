@@ -159,7 +159,8 @@ def analyze(
     """
     client = GitHubClient(token=token)
     user = client.get_user(username)
-    repos = client.get_repos(username, include_forks=False)
+    all_repos = client.get_repos(username, include_forks=True)
+    repos = [r for r in all_repos if not r.get("fork")]
     repos_sorted = sorted(repos, key=lambda r: r.get("stargazers_count", 0), reverse=True)
     top_repos = repos_sorted[:top_n]
 
@@ -260,7 +261,10 @@ def analyze(
     breakdown["star_signal"] = star_pts
 
     # 4. Contribution activity (15 pts) ----------------------------------------
-    days = _days_since(user.get("updated_at"))
+    # Honest signal: last push to an owned repo (real code activity), NOT the
+    # profile's updated_at — which also bumps on stars, follows, and bio edits.
+    last_push = max((r.get("pushed_at") for r in repos if r.get("pushed_at")), default=None)
+    days = _days_since(last_push)
     if days is None or days > 180:
         streak_pts = 0
         findings.append(Finding(
@@ -273,7 +277,7 @@ def analyze(
         streak_pts = 5
         findings.append(Finding(
             "contribution_streak", "medium",
-            f"Low recent activity ({days} days since last update)",
+            f"Low recent activity ({days} days since last push)",
             "Aim for a few commits per month to stay visible.",
             "Pick one project and make a small meaningful improvement weekly.",
         ))
@@ -283,7 +287,7 @@ def analyze(
         streak_pts = 15
         findings.append(Finding(
             "contribution_streak", "good",
-            f"Active recent commits ({days}d ago)",
+            f"Active recently (last push {days}d ago)",
             "Consistent shipping builds reputation over time.",
         ))
     breakdown["contribution_streak"] = streak_pts
@@ -368,9 +372,9 @@ def analyze(
     breakdown["topic_tags"] = topic_pts
 
     # 8. Fork ratio (5 pts) ----------------------------------------------------
-    all_repos_with_forks = client.get_repos(username, include_forks=True)
-    fork_count = sum(1 for r in all_repos_with_forks if r.get("fork"))
-    total_count = len(all_repos_with_forks)
+    # Reuse the single include_forks fetch from the top of analyze() — no 2nd API call.
+    fork_count = sum(1 for r in all_repos if r.get("fork"))
+    total_count = len(all_repos)
     fork_ratio = fork_count / total_count if total_count > 0 else 0
     if fork_ratio > 0.7:
         fork_pts = 1

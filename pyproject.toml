@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "github-rep"
-version = "0.2.0"
+version = "0.2.1"
 description = "Analyze a GitHub profile and get honest, actionable advice for building real reputation"
 readme = "README.md"
 license = { text = "MIT" }
@@ -27,7 +27,6 @@ dependencies = [
     "requests>=2.31",
     "rich>=13.0",
     "typer>=0.9",
-    "python-dateutil>=2.8",
 ]
 
 [project.optional-dependencies]

@@ -230,6 +230,20 @@ class TestAnalyze:
         star_findings = [f for f in score.findings if f.category == "star_signal"]
         assert any(f.severity in ("high", "medium") for f in star_findings)
 
+    @patch("github_rep.analyzer.GitHubClient")
+    def test_activity_uses_push_not_profile_update(self, MockClient):
+        # Profile "touched" recently (e.g. a star) but no real code pushes in ~10mo.
+        # The honest signal must read repo push time, not user.updated_at.
+        user = _make_user(updated_at=_dt(1))
+        repos = [_make_repo(days_ago=300)]
+        MockClient.return_value = self._mock_client(user, repos)
+
+        score = analyze("testuser")
+
+        assert score.breakdown["contribution_streak"] == 0
+        streak = [f for f in score.findings if f.category == "contribution_streak"]
+        assert streak and "No recent activity" in streak[0].title
+
     # -- New signal: release_cadence -------------------------------------------
 
     @patch("github_rep.analyzer.GitHubClient")

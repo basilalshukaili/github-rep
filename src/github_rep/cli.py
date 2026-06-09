@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from typing import Optional
 
 import typer
@@ -236,7 +237,6 @@ def rate_limit(
         remaining = core.get("remaining", "?")
         limit = core.get("limit", "?")
         reset_ts = core.get("reset")
-        import time
         reset_str = time.ctime(reset_ts) if reset_ts else "?"
         console.print(f"[cyan]Rate limit:[/cyan] {remaining}/{limit} remaining, resets at {reset_str}")
         if not token:

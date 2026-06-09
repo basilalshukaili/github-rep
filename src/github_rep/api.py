@@ -29,7 +29,7 @@ class GitHubClient:
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "github-rep/0.2.0",
+            "User-Agent": "github-rep/0.2.1",
         })
         if self.token:
             self.session.headers["Authorization"] = f"Bearer {self.token}"
@@ -49,7 +49,10 @@ class GitHubClient:
 
     def _set_cached(self, url: str, params: dict, data: Any) -> None:
         cache_file = self._cache_key(url, params)
-        cache_file.write_text(json.dumps(data))
+        try:
+            cache_file.write_text(json.dumps(data))
+        except OSError:
+            pass  # cache is best-effort; a read-only/full disk must not crash analysis
 
     def get(self, path: str, params: Optional[Dict] = None, use_cache: bool = True) -> Any:
         params = params or {}
@@ -59,9 +62,16 @@ class GitHubClient:
             if cached is not None:
                 return cached
         resp = self.session.get(url, params=params)
-        if resp.status_code == 403 and "rate limit" in resp.text.lower():
-            reset = int(resp.headers.get("X-RateLimit-Reset", 0))
-            raise RateLimitError(f"Rate limited. Resets at {time.ctime(reset)}")
+        if resp.status_code in (403, 429) and (
+            resp.status_code == 429 or "rate limit" in resp.text.lower()
+        ):
+            reset = int(resp.headers.get("X-RateLimit-Reset", 0) or 0)
+            if not reset and resp.headers.get("Retry-After"):
+                reset = int(time.time()) + int(resp.headers["Retry-After"])
+            raise RateLimitError(
+                f"Rate limited. Resets at {time.ctime(reset)}"
+                if reset else "Rate limited (secondary limit). Retry shortly."
+            )
         resp.raise_for_status()
         data = resp.json()
         if use_cache:
