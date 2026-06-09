@@ -10,7 +10,17 @@
 **Title:** `/reasoning` in TUI returns "unknown reasoning value: medium"
 **Labels:** comp/gateway, comp/tui, P2, type/bug
 **URL:** https://github.com/NousResearch/hermes-agent/issues/42643
-**PR status:** No PR open as of 2026-06-09
+**PR status:** No PR — DO NOT open the planned fix below (see update).
+
+> ⚠️ **UPDATE 2026-06-09 (review caught a misdiagnosis):** The fix plan below is WRONG.
+> Bare `/reasoning` routes to `config.get` (session.ts:393, guard since Apr 16), and
+> `config.get`'s reasoning branch (server.py:5401, since Apr 13) already returns the value
+> cleanly. The error only comes from `config.set`, and `parse_reasoning_effort("medium")`
+> returns a valid dict — so it does NOT reproduce on current `main`. Posted a triage comment
+> on the issue asking the reporter to confirm on latest + share `hermes_constants.__file__`
+> (likely a stale/shadowed module in their env). If they confirm a real repro, fix the ACTUAL
+> path; otherwise re-triage for a reproducible issue. The "Fix plan" below is kept only as a
+> record of what NOT to do.
 
 **Root cause:** `tui_gateway/server.py:6148` routes `/reasoning` (no args) to the
 SET handler instead of the GET handler. The SET handler then tries to parse the
