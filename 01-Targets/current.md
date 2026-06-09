@@ -1,22 +1,42 @@
-# Current Target
+# Active Target: NousResearch/hermes-agent
 
-**Active project:** NousResearch/hermes-agent
-**Status:** Phase 1 — Establish Credibility
-**Chosen because:**
-- We (the agent) know this codebase intimately — it's the system Basil runs.
-- High-value, very active project (the framework powering this whole operation).
-- We have first-hand, hard-to-replicate knowledge of its Windows quirks, skills system,
-  delegation, and cron — a strong niche for genuine contributions.
-- Contributing here is dogfooding: every fix improves Basil's own tooling.
+**Status:** 1 merged PR — building on momentum.
+**Rule:** Stay until 2-3 merged PRs build maintainer rapport. Depth over breadth.
 
-**Rule:** Stay on this project until we've landed several merged PRs and built maintainer
-rapport. Do NOT jump to another project prematurely.
+---
 
-**Next action (once gh authenticated):**
-1. Run `github-repo-triage` on NousResearch/hermes-agent.
-2. Find 2-3 well-scoped, genuinely useful contributions — prioritize areas we know:
-   Windows quirks, skills/curator, docs gaps, test coverage, delegation edge cases.
-3. Validate locally (the repo is already at `~/AppData/Local/hermes/hermes-agent`).
-4. Land the first merged PR.
+## Next issue: #42643
 
-**Dossier:** [[02-Repos/NousResearch__hermes-agent]]
+**Title:** `/reasoning` in TUI returns "unknown reasoning value: medium"
+**Labels:** comp/gateway, comp/tui, P2, type/bug
+**URL:** https://github.com/NousResearch/hermes-agent/issues/42643
+**PR status:** No PR open as of 2026-06-09
+
+**Root cause:** `tui_gateway/server.py:6148` routes `/reasoning` (no args) to the
+SET handler instead of the GET handler. The SET handler then tries to parse the
+current config value "medium" as if it were user input, which fails validation.
+
+**Fix plan:**
+1. Clone fork, create branch `fix/tui-reasoning-get-handler`
+2. Open `tui_gateway/server.py` around line 6148
+3. Add a guard: if no argument provided, call the GET path instead of SET
+4. Add test covering `/reasoning` with no args → shows current value
+5. Run full test suite; confirm green
+6. PR with description referencing #42643
+
+**Commit message:** `fix(tui): route /reasoning with no args to GET handler (#42643)`
+
+---
+
+## Completed contributions
+
+| PR | Description | Status |
+|----|-------------|--------|
+| #38832 | fix(compression): guard against cross-session stale _previous_summary | Merged via #41717 — Jun 8, 2026 |
+
+---
+
+## Lessons learned
+- Always check for existing PRs before starting (issue #36771 taught this)
+- This repo merges fast — check PR list before branching
+- Maintainer (teknium1) appreciates tests + scoped diffs
