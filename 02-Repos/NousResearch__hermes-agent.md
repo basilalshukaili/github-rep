@@ -1,40 +1,41 @@
-# Dossier: NousResearch/hermes-agent
+# NousResearch/hermes-agent — Contribution Dossier
 
-## Identity
-- Repo: NousResearch/hermes-agent — https://github.com/NousResearch/hermes-agent
-- Stars: ~175k · very active
-- License: MIT
-- Primary language: Python
-- AI-PR policy: none found prohibiting it (verify CONTRIBUTING before first PR).
+**Repo:** https://github.com/NousResearch/hermes-agent
+**Stars:** ~175k | **License:** MIT | **Language:** Python 3.11
+**Status:** ACTIVE — first merged PR landed June 8, 2026
 
-## Why this is target #1
-- We run this framework daily — deep, hard-to-replicate familiarity.
-- Strong niche: first-hand Windows quirks, skills/curator, delegation, cron.
-- Dogfooding: every fix improves Basil's own tooling.
+---
 
-## Stack & Tooling
-- Language: Python (3.11)
-- Tests: pytest (`python -m pytest tests/ -o 'addopts=' -q`). On Windows, install pytest +
-  pytest-xdist + pyyaml into a system Python 3.11 and run with `PYTHONPATH=$(pwd)` and `-n 0`.
-- Layout: run_agent.py, agent/, hermes_cli/, tools/, gateway/, cron/, tests/, website/.
+## Merged contributions
 
-## Conventions
-- Commit style: `type: subject` (fix:, feat:, refactor:, docs:, chore:).
-- New tools need a `check_fn`. Use `get_hermes_home()` for paths. Never break prompt caching.
+### PR #38832 — fix(compression): guard against cross-session stale _previous_summary contamination
+- **Opened:** June 2026 | **Closed/Merged:** June 8, 2026 via PR #41717
+- **Problem:** Cron/background sessions left stale `_previous_summary` on the shared
+  `ContextCompressor` instance. Subsequent live sessions picked it up and injected
+  unrelated prior context into the summarizer prompt, poisoning live conversations.
+- **Fix:** Added guard in `compress()` (line 1911): if no handoff summary exists in
+  current messages but `_previous_summary` is non-empty, discard it and start fresh.
+- **Tests:** 3 new test cases in `tests/agent/test_context_compressor_cross_session_guard.py`
+  (stale clear, handoff preservation, non-interference). All 33 tests green.
+- **Credit:** teknium1 merged the approach in PR #41717 with Basil listed as co-author
+  and added to `AUTHOR_MAP` in `scripts/release.py`.
+- **Fixes issue:** #38788
 
-## Opportunities (triage in progress)
-| Issue | Link | Value | Tractability | PR exists? | Notes |
-|-------|------|-------|--------------|-----------|-------|
-| #36771 claw migrate wrong cmd | issues/36771 | low | trivial | **YES (#30630, #36795)** | SKIP — duplicate |
-| (more candidates being triaged) | | | | | |
+---
 
-## First contribution
-- Not yet chosen. #36771 rejected (already has 2 open PRs). Triaging unclaimed P2/P3 bugs next,
-  weighting toward our Windows / CLI / delegation / cron knowledge.
+## Development notes
 
-## Contribution log
-- (none yet)
+- Windows testing requires `PYTHONPATH=$(pwd)` and `pytest -n 0`
+- Commit convention: `type(scope): subject` (fix, feat, chore, docs, test)
+- New tools must include a `check_fn`
+- Check existing PRs before opening — this repo moves fast, duplicates happen
 
-## Lessons specific to this repo
-- Small obvious bugs here get PR'd fast — check existing PRs first. See
-  [[05-Lessons/always-check-for-existing-pr]].
+## Next contribution candidates
+
+Triage in progress. Prioritize unclaimed P2/P3 bugs in:
+- `agent/` — delegation edge cases
+- `cron/` — scheduling reliability
+- `hermes_cli/` — Windows/CLI quirks
+- Documentation gaps where deep knowledge adds real value
+
+Rule: check for existing PRs on any issue before starting work.
