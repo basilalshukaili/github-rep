@@ -4,6 +4,7 @@
 
 | Layer | Tech | Role |
 |-------|------|------|
+| Apex | Claude Fable 5 ($10/$50) | Hardest judgment — deep diagnosis, final review on big PRs, long-horizon sessions |
 | Brain | Claude Opus 4.8 | Plans, decides, reviews every diff, writes all prose, commits |
 | Worker | Claude Sonnet 4.6 | Mechanical, fully-specified, verifiable subtasks only |
 | Scout | Claude Haiku 4.5 | Cheap scans, grep-style searches, formatting |

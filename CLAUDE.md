@@ -34,6 +34,9 @@ Then follow `04-Playbooks/` for the procedure you need.
 Use the cheapest tier that does the job WELL. Push mechanical work down; keep all judgment and
 all maintainer-facing prose at the top tier.
 
+- **Apex (hardest judgment):** Claude Fable 5 (`claude-fable-5`, $10/$50 — 2x Opus). NOT a token
+  saver; use for deep diagnosis, final review on big PRs, and long-horizon sessions where fewer
+  turns/mistakes beat the per-token premium. On Claude Code: `/model claude-fable-5`.
 - **Brain (top model):** decide what to contribute, review every diff, write ALL prose (commit
   messages, PR descriptions, issue comments), make design calls, commit.
   - On Hermes: Claude Opus 4.8. On Claude Code: Opus for planning/review (`/model opus`).
