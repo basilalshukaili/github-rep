@@ -1,52 +1,29 @@
-# Active Target: NousResearch/hermes-agent
+# Active Targets (two-front, 2026-07-02)
 
-**Status:** 1 merged PR — building on momentum.
-**Rule:** Stay until 2-3 merged PRs build maintainer rapport. Depth over breadth.
+## Front 1: NousResearch/hermes-agent — 2 MERGED, 1 in flight
+**Status:** Graduation criteria met (2-3 merged PRs). Maintain presence, respond to reviews fast.
+| Contribution | Status |
+|---|---|
+| #38832 compression contamination fix | ✅ Merged via #41717 (Jun 8) |
+| #43293 tail-budget token undercount | ✅ Merged via `72f75f845` (authorship preserved) |
+| #56877 Windows console-flash, GUI exec paths | 🟢 Open — CI 20/20 green, awaiting review |
 
----
+**Follow-up bench (unclaimed, audited 2026-07-02):** docker.py 17 spawn sites, computer_use/doctor.py, env_probe `_run`, lazy_deps, banner.py git calls, web_git.py, tools_config installers. Ship as scoped PRs only if maintainer signals interest on #56877. Avoid the spam pile (~50 bounty PRs on this bug class; 3 reverted mass sweeps — stay surgical).
 
-## Next issue: #42643
+## Front 2: langchain-ai/langchain — OPENING (2026-07-02)
+**Protocol (hard rule):** bot auto-closes PRs from unassigned contributors. Sequence: substantive diagnosis comment → maintainer assigns → THEN PR.
+**Verified-open, unassigned targets (June diagnoses, re-verification in progress):**
+| Issue | Bug | Owner |
+|---|---|---|
+| #37673 | VectorStore.add_texts exhausts generator → 0 docs added (core infra) | Worker A (clone + fix + tests) |
+| #37596 | ChatAnthropic.bind_tools mutates caller tool_choice dict | Worker A |
+| #37894 | convert_to_openai_messages mutates caller message dict | Worker B (read-only verify) |
+| #37761 | _to_protocol_usage drops token_details in v3 streaming | Worker B |
+(#37736 closed upstream — dropped.)
 
-**Title:** `/reasoning` in TUI returns "unknown reasoning value: medium"
-**Labels:** comp/gateway, comp/tui, P2, type/bug
-**URL:** https://github.com/NousResearch/hermes-agent/issues/42643
-**PR status:** No PR — DO NOT open the planned fix below (see update).
+**Next actions:** review worker reports → post diagnosis comments under @basilalshukaili → on assignment, push staged branches + open PRs.
 
-> ⚠️ **UPDATE 2026-06-09 (review caught a misdiagnosis):** The fix plan below is WRONG.
-> Bare `/reasoning` routes to `config.get` (session.ts:393, guard since Apr 16), and
-> `config.get`'s reasoning branch (server.py:5401, since Apr 13) already returns the value
-> cleanly. The error only comes from `config.set`, and `parse_reasoning_effort("medium")`
-> returns a valid dict — so it does NOT reproduce on current `main`. Posted a triage comment
-> on the issue asking the reporter to confirm on latest + share `hermes_constants.__file__`
-> (likely a stale/shadowed module in their env). If they confirm a real repro, fix the ACTUAL
-> path; otherwise re-triage for a reproducible issue. The "Fix plan" below is kept only as a
-> record of what NOT to do.
-
-**Root cause:** `tui_gateway/server.py:6148` routes `/reasoning` (no args) to the
-SET handler instead of the GET handler. The SET handler then tries to parse the
-current config value "medium" as if it were user input, which fails validation.
-
-**Fix plan:**
-1. Clone fork, create branch `fix/tui-reasoning-get-handler`
-2. Open `tui_gateway/server.py` around line 6148
-3. Add a guard: if no argument provided, call the GET path instead of SET
-4. Add test covering `/reasoning` with no args → shows current value
-5. Run full test suite; confirm green
-6. PR with description referencing #42643
-
-**Commit message:** `fix(tui): route /reasoning with no args to GET handler (#42643)`
-
----
-
-## Completed contributions
-
-| PR | Description | Status |
-|----|-------------|--------|
-| #38832 | fix(compression): guard against cross-session stale _previous_summary | Merged via #41717 — Jun 8, 2026 |
-
----
-
-## Lessons learned
-- Always check for existing PRs before starting (issue #36771 taught this)
-- This repo merges fast — check PR list before branching
-- Maintainer (teknium1) appreciates tests + scoped diffs
+## Standing lessons
+- Re-verify ALL bench intel against current main before coding — it rots in weeks (#42776, TTL bug, #37736 all died stale).
+- One scoped, evidence-backed PR beats any sweep. Honesty about what wasn't verifiable IS the differentiator.
+- Identity: basilalshukaili + basilalshukaili@gmail.com, always, every clone.
